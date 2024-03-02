@@ -1,0 +1,795 @@
+---
+title: "BA.4/BA.5 Case Control Analysis"
+author: "Elijah Huang"
+date: '2023-11-09'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+I will isolate the BA.4/BA.5 Wave data points and repeat the overall case control study.
+
+Initiate packages and set working directory.
+```{r}
+library(tidyverse)
+library(epiR)
+library(MASS)
+library(tinytex)
+
+#set working directory manually. or the orj0nv files works for this period.
+```
+Read in the dataset.
+```{r}
+covid_cases_deaths_demographics <- read.csv("statewide-covid-19-cases-deaths-demographics.csv")
+```
+Now change the report date from character to date.
+```{r}
+covid_cases_deaths_demographics <- covid_cases_deaths_demographics %>%
+  mutate(Report_Date = as.Date(report_date))
+```
+Now select only the BA.4/BA.5 dates. From my previous project we learned that the BA.4/BA.5 Wave was roughly from April to September 2022.
+```{r}
+ba_4_ba_5 <- covid_cases_deaths_demographics %>%
+  filter(Report_Date >="2022-04-01" & Report_Date <= "2022-9-30")
+```
+Now the rest of the file will be the same as before, just changing the variables. I just have to change the covid_cases_deaths_demographics to ba_4_ba_5 at all points after this.
+
+
+Let's explore the data. I want to know what categories there are for race, sex, and age.
+
+```{r}
+ba_4_ba_5$report_date
+unique(ba_4_ba_5$demographic_category) #"Age Group"      "Gender"         "Race Ethnicity"
+unique(ba_4_ba_5$demographic_value)
+```
+
+So let's dive into age.
+
+```{r}
+age_0_to_17 <- ba_4_ba_5 %>%
+  filter(demographic_value == "0-17")
+tail(age_0_to_17)
+head(age_0_to_17)
+tail(age_0_to_17, 1) #checking to see that this is the last line
+cases_age_0_to_17 <- age_0_to_17$total_cases[48] - age_0_to_17$total_cases[1]
+age_18_to_49 <- ba_4_ba_5 %>%
+  filter(demographic_value == "18-49")
+tail(age_18_to_49)
+cases_age_18_to_49 <- age_18_to_49$total_cases[48] - age_18_to_49$total_cases[1]
+age_50_to_64 <- ba_4_ba_5 %>%
+  filter(demographic_value == "50-64")
+tail(age_50_to_64)
+cases_age_50_to_64 <- age_50_to_64$total_cases[48]-age_50_to_64$total_cases[1]
+age_65_up <- ba_4_ba_5 %>%
+  filter(demographic_value == "65+")
+tail(age_65_up)
+cases_age_65_up <- age_65_up$total_cases[48]-age_65_up$total_cases[1]
+```
+
+I also need to find all the non-cases. We'll do that by checking the U.S. Census. This is an API. I learned how to use this by reading <https://walker-data.com/tidycensus/> and the first two articles listed on this page.
+
+```{r}
+library(tidycensus)   # For downloading Census data
+#if it's the first time using the census api, you'll need a census api key.
+#Read the article I posted on how to obtain one.
+#census_api_key("1fd361849952fe6d87edfdc07962d8805c8e0903", install = TRUE)
+#readRenviron("~/.Renviron")
+census_variables <- load_variables(2021, "acs5", cache = TRUE) #I tried to get 2022 data, but the most updated census data I can access with the API is from 2021.
+#unique(census_variables$concept)
+View(census_variables)
+
+```
+
+Now that I've found the Census data, I just have to query the appropriate datasets. I want to find the aggregate population for each age category, but the Census dataset has them split by sex AND age. I'll have to add the sexes back together after I obtain all the totals.
+
+```{r}
+#these codes are the first ones that show up. Otherwise, going on data.census.gov can get you the right codes too.
+ca_population <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_001",
+  year = 2021) #2021 is the most recent year that the census recorded. 2022 is not valid.
+ca_population
+ca_male_under_5 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_003",
+  year = 2021)
+ca_male_under_5
+ca_male_5_to_9 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_004",
+  year = 2021)
+ca_male_5_to_9
+ca_male_10_to_14 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_005",
+  year = 2021)
+ca_male_10_to_14
+ca_male_15_to_17<- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_006",
+  year = 2021)
+ca_male_15_to_17
+ca_male_18_to_19 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_007",
+  year = 2021)
+ca_male_18_to_19
+ca_male_20 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_008",
+  year = 2021)
+ca_male_20
+ca_male_21 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_009",
+  year = 2021)
+ca_male_21
+ca_male_22_to_24 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_010",
+  year = 2021)
+ca_male_22_to_24
+ca_male_25_to_29 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_011",
+  year = 2021)
+ca_male_25_to_29
+ca_male_30_to_34 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_012",
+  year = 2021)
+ca_male_30_to_34
+ca_male_35_to_39 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_013",
+  year = 2021)
+ca_male_35_to_39
+ca_male_40_to_44 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_014",
+  year = 2021)
+ca_male_40_to_44
+ca_male_45_to_49 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_015",
+  year = 2021)
+ca_male_45_to_49
+ca_male_50_to_54 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_016",
+  year = 2021)
+ca_male_50_to_54
+ca_male_55_to_59 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_017",
+  year = 2021)
+ca_male_55_to_59
+ca_male_60_to_61 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_018",
+  year = 2021)
+ca_male_60_to_61
+ca_male_62_to_64 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_019",
+  year = 2021)
+ca_male_62_to_64
+ca_male_65_to_66 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_020",
+  year = 2021)
+ca_male_65_to_66
+ca_male_67_to_69 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_021",
+  year = 2021)
+ca_male_67_to_69
+ca_male_70_to_74 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_022",
+  year = 2021)
+ca_male_70_to_74
+ca_male_75_to_79 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_023",
+  year = 2021)
+ca_male_75_to_79
+ca_male_80_to_84 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_024",
+  year = 2021)
+ca_male_80_to_84
+ca_male_85_and_over <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_025",
+  year = 2021)
+ca_male_85_and_over
+
+ca_female_under_5 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_027",
+  year = 2021)
+ca_female_under_5
+ca_female_5_to_9 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_028",
+  year = 2021)
+ca_female_5_to_9
+ca_female_10_to_14 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_029",
+  year = 2021)
+ca_female_10_to_14
+ca_female_15_to_17<- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_030",
+  year = 2021)
+ca_female_15_to_17
+ca_female_18_to_19 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_031",
+  year = 2021)
+ca_female_18_to_19
+ca_female_20 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_032",
+  year = 2021)
+ca_female_20
+ca_female_21 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_033",
+  year = 2021)
+ca_female_21
+ca_female_22_to_24 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_034",
+  year = 2021)
+ca_female_22_to_24
+ca_female_25_to_29 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_035",
+  year = 2021)
+ca_female_25_to_29
+ca_female_30_to_34 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_036",
+  year = 2021)
+ca_female_30_to_34
+ca_female_35_to_39 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_037",
+  year = 2021)
+ca_female_35_to_39
+ca_female_40_to_44 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_038",
+  year = 2021)
+ca_female_40_to_44
+ca_female_45_to_49 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_039",
+  year = 2021)
+ca_female_45_to_49
+ca_female_50_to_54 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_040",
+  year = 2021)
+ca_female_50_to_54
+ca_female_55_to_59 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_041",
+  year = 2021)
+ca_female_55_to_59
+ca_female_60_to_61 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_042",
+  year = 2021)
+ca_female_60_to_61
+ca_female_62_to_64 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_043",
+  year = 2021)
+ca_female_62_to_64
+ca_female_65_to_66 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_044",
+  year = 2021)
+ca_female_65_to_66
+ca_female_67_to_69 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_045",
+  year = 2021)
+ca_female_67_to_69
+ca_female_70_to_74 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_046",
+  year = 2021)
+ca_female_70_to_74
+ca_female_75_to_79 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_047",
+  year = 2021)
+ca_female_75_to_79
+ca_female_80_to_84 <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_048",
+  year = 2021)
+ca_female_80_to_84
+ca_female_85_and_over <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001_049",
+  year = 2021)
+ca_female_85_and_over
+```
+
+Now I have to aggregate each age category by sex, then aggregate them to match the age categories from my first dataset.
+
+```{r}
+ca_under_5 <- ca_male_under_5$estimate + ca_female_under_5$estimate
+ca_5_to_9 <- ca_male_5_to_9$estimate + ca_female_5_to_9$estimate
+ca_10_to_14 <- ca_male_10_to_14$estimate + ca_female_10_to_14$estimate
+ca_15_to_17 <- ca_male_15_to_17$estimate + ca_female_15_to_17$estimate
+ca_18_to_19 <- ca_male_18_to_19$estimate + ca_female_18_to_19$estimate
+ca_20 <- ca_male_20$estimate + ca_female_20$estimate
+ca_21 <- ca_male_21$estimate + ca_female_21$estimate
+ca_22_to_24 <- ca_male_22_to_24$estimate + ca_female_22_to_24$estimate
+ca_25_to_29 <- ca_male_25_to_29$estimate + ca_female_25_to_29$estimate
+ca_30_to_34 <- ca_male_30_to_34$estimate + ca_female_30_to_34$estimate
+ca_35_to_39 <- ca_male_35_to_39$estimate + ca_female_35_to_39$estimate
+ca_40_to_44 <- ca_male_40_to_44$estimate + ca_female_40_to_44$estimate
+ca_45_to_49 <- ca_male_45_to_49$estimate + ca_female_45_to_49$estimate
+ca_50_to_54 <- ca_male_50_to_54$estimate + ca_female_50_to_54$estimate
+ca_55_to_59 <- ca_male_55_to_59$estimate + ca_female_55_to_59$estimate
+ca_60_to_61 <- ca_male_60_to_61$estimate + ca_female_60_to_61$estimate
+ca_62_to_64 <- ca_male_62_to_64$estimate + ca_female_62_to_64$estimate
+ca_65_to_66 <- ca_male_65_to_66$estimate + ca_female_65_to_66$estimate
+ca_67_to_69 <- ca_male_67_to_69$estimate + ca_female_67_to_69$estimate
+ca_70_to_74 <- ca_male_70_to_74$estimate + ca_female_70_to_74$estimate
+ca_75_to_79 <- ca_male_75_to_79$estimate + ca_female_75_to_79$estimate
+ca_80_to_84 <- ca_male_80_to_84$estimate + ca_female_80_to_84$estimate
+ca_85_and_over <- ca_male_85_and_over$estimate + ca_female_85_and_over$estimate
+#making the census values match up with the dataset age categories
+ca_0_to_17 <- ca_under_5 + ca_5_to_9 + ca_10_to_14 + ca_15_to_17
+ca_18_to_49 <- ca_18_to_19 + ca_20 + ca_21 + ca_22_to_24 + ca_25_to_29 + ca_30_to_34 + ca_35_to_39 + ca_40_to_44 + ca_45_to_49
+ca_50_to_64 <- ca_50_to_54 + ca_55_to_59 + ca_60_to_61 + ca_62_to_64
+ca_65_and_over <- ca_65_to_66 + ca_67_to_69 + ca_70_to_74 + ca_75_to_79 + ca_80_to_84 + ca_85_and_over
+```
+
+Now I will run case control 2x2 tables for each age category. I will arbitrarily set the 0-17 age category as the baseline exposure. First I will compare the 0-17 stratum against the 18-49 stratum.
+
+```{r}
+#calculate controls for each stratum
+#Controls for 0-17
+control_cases_0_to_17 <- ca_0_to_17 - cases_age_0_to_17 
+#Controls for 18-49
+control_cases_18_to_49 <- ca_18_to_49 - cases_age_18_to_49	
+epi.2by2(c(cases_age_18_to_49,control_cases_18_to_49,cases_age_0_to_17,control_cases_0_to_17), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Now I will compare the 0-17 stratum against the 50-64 stratum.
+```{r}
+#Controls for 50-64
+control_cases_50_to_64 <- ca_50_to_64 - cases_age_50_to_64
+control_cases_50_to_64 
+epi.2by2(c(cases_age_50_to_64,control_cases_50_to_64,cases_age_0_to_17,control_cases_ca_0_to_17), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Finally, I will compare the 0-17 stratum against the 65+ stratum.
+
+```{r}
+#Controls for 65+
+control_cases_65_and_over <- ca_65_and_over - cases_age_65_up
+control_cases_65_and_over 
+epi.2by2(c(cases_age_65_up,control_cases_65_and_over,cases_age_0_to_17,control_cases_ca_0_to_17), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Now I also want to compare gender and race in case control studies. Either men or women can serve as the baseline exposure, but I think setting white race as baseline exposure is a good idea. I also want to do case control 2x2 tables for age, gender, and race specifically during the ba_4_ba_5 and Omicron Periods (and maybe a non-wave period too).
+
+Now to compare deaths among age groups.
+
+```{r}
+#Find the number of deaths for each age category. To save time, I copied and pasted the earlier block that found total cases per age group and edited that code.
+tail(age_0_to_17)
+head(age_0_to_17)
+tail(age_0_to_17, 1) #checking to see that this is the last line
+deaths_age_0_to_17 <- age_0_to_17$deaths[48] - age_0_to_17$deaths[1]
+tail(age_18_to_49)
+head(age_18_to_49)
+deaths_age_18_to_49 <- age_18_to_49$deaths[48] - age_18_to_49$deaths[1]
+tail(age_50_to_64)
+deaths_age_50_to_64 <- age_50_to_64$deaths[48] - age_50_to_64$deaths[1]
+tail(age_65_up)
+deaths_age_65_up <- age_65_up$deaths[48] - age_65_up$deaths[1]
+```
+
+Next, finding the control group for the death "cases," which is the total population minus the deaths.
+
+```{r}
+#Controls for ages 0 to 17
+control_deaths_0_to_17 <- ca_0_to_17 - deaths_age_0_to_17
+control_deaths_18_to_49 <- ca_18_to_49 - deaths_age_18_to_49
+control_deaths_50_to_64 <- ca_50_to_64 - deaths_age_50_to_64
+control_deaths_65_up <- ca_65_and_over - deaths_age_65_up
+```
+
+Now compare deaths between age group 0-17 and age group 18-49.
+
+```{r}
+epi.2by2(c(deaths_age_18_to_49,control_deaths_18_to_49,deaths_age_0_to_17,control_deaths_0_to_17), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Now to compare deaths between age group 0-17 with age group 50-64.
+
+```{r}
+epi.2by2(c(deaths_age_50_to_64,control_deaths_50_to_64,deaths_age_0_to_17,control_deaths_0_to_17), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Now to compare deaths between age group 0 to 17 and age group 65 and up.
+
+```{r}
+epi.2by2(c(deaths_age_65_up,control_deaths_65_up,deaths_age_0_to_17,control_deaths_0_to_17), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Now we move on to comparing cases between races. Let's find out how many cases happen in each race.
+
+```{r}
+white <- ba_4_ba_5 %>%
+  filter(demographic_value == "White")
+tail(white)
+tail(white, 1) #checking to see that this is the last line
+head(white)
+cases_white <- white$total_cases[48] - white$total_cases[1]
+black <- ba_4_ba_5 %>%
+  filter(demographic_value == "Black")
+tail(black)
+tail(black, 1) 
+cases_black <- black$total_cases[48] - black$total_cases[1]
+american_indian <- ba_4_ba_5 %>%
+  filter(demographic_value == "American Indian or Alaska Native")
+tail(american_indian)
+tail(american_indian, 1) 
+cases_american_indian <- american_indian$total_cases[48] - american_indian$total_cases[1]
+asian <- ba_4_ba_5 %>%
+  filter(demographic_value == "Asian")
+tail(asian)
+tail(asian, 1) 
+cases_asian <- asian$total_cases[48] - asian$total_cases[1]
+hawaiian_pacific_islander <- ba_4_ba_5 %>%
+  filter(demographic_value == "Native Hawaiian and other Pacific Islander")
+tail(hawaiian_pacific_islander)
+tail(hawaiian_pacific_islander, 1) 
+cases_hawaiian_pacific_islander <- hawaiian_pacific_islander$total_cases[48] - hawaiian_pacific_islander$total_cases[1]
+multi_race <- ba_4_ba_5 %>%
+  filter(demographic_value == "Multi-Race")
+other <- ba_4_ba_5 %>%
+  filter(demographic_value == "Other")
+tail(other)
+tail(other, 1) 
+cases_other <- other$total_cases[48] - other$total_cases[1]
+tail(multi_race)
+tail(multi_race, 1) 
+cases_multi_race <- multi_race$total_cases[48] - multi_race$total_cases[1]
+hispanic_latino <- ba_4_ba_5 %>%
+  filter(demographic_value == "Latino")
+tail(hispanic_latino)
+tail(hispanic_latino, 1) 
+cases_hispanic_latino <- hispanic_latino$total_cases[48] - hispanic_latino$total_cases[1]
+```
+
+```{r}
+#Race variables to collect:
+# [11] "American Indian or Alaska Native"          
+# [12] "Asian"                                     
+# [13] "Black"                                     
+# [14] "Latino"                                    
+# [15] "Multi-Race"                                
+# [16] "Native Hawaiian and other Pacific Islander"
+# [17] "Other"                                     
+# [18] "White"  
+#B01001A_001 is white including Hispanic/Latino, B01001H_001 is white not including Hispanic/Latino. I believe the COVID dataset has the white population separate from the Latino population, because the Latino population has its own category.
+ca_white_pop <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001H_001",
+  year = 2021)
+ca_white_pop
+ca_black_pop <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001B_001",
+  year = 2021)
+ca_black_pop
+ca_american_indian_pop <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001C_001",
+  year = 2021)
+ca_american_indian_pop
+ca_asian_pop <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001D_001",
+  year = 2021)
+ca_asian_pop
+ca_hawaiian_pacific_islander_pop <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001E_001",
+  year = 2021)
+ca_hawaiian_pacific_islander_pop
+ca_other_pop <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001F_001",
+  year = 2021)
+ca_other_pop
+ca_multi_race_pop <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001G_001",
+  year = 2021)
+ca_multi_race_pop
+ca_hispanic_latino_pop <- get_acs(
+  geography = "state",
+  state = "CA",
+  variables = "B01001I_001",
+  year = 2021)
+ca_hispanic_latino_pop
+```
+
+Now I need to make the control groups for each race.
+
+```{r}
+control_cases_white <- ca_white_pop$estimate - cases_white
+control_cases_black <- ca_black_pop$estimate - cases_black
+control_cases_american_indian <- ca_american_indian_pop$estimate - cases_american_indian
+control_cases_asian <- ca_asian_pop$estimate - cases_asian
+control_cases_hawaiian_pacific_islander <- ca_hawaiian_pacific_islander_pop$estimate - cases_hawaiian_pacific_islander
+control_cases_other <- ca_other_pop$estimate - cases_other
+control_cases_multi_race <- ca_multi_race_pop$estimate - cases_multi_race
+control_cases_hispanic_latino <- ca_hispanic_latino_pop$estimate - cases_hispanic_latino
+```
+
+Now I will compare cases for white population vs. black population.
+
+```{r}
+epi.2by2(c(cases_black,control_cases_black,cases_white,control_cases_white), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Now I will compare cases for white population vs. Asian population.
+
+```{r}
+epi.2by2(c(cases_asian,control_cases_asian,cases_white,control_cases_white), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Now to compare cases for white population vs. American Indian population.
+
+```{r}
+epi.2by2(c(cases_american_indian,control_cases_american_indian,cases_white,control_cases_white), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Now I will compare white population vs. Hawaiian and Pacific Islander pouplation.
+
+```{r}
+epi.2by2(c(cases_hawaiian_pacific_islander,control_cases_hawaiian_pacific_islander,cases_white,control_cases_white), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Now I will compare cases in white population vs. Other race.
+
+```{r}
+epi.2by2(c(cases_other,control_cases_other,cases_white,control_cases_white), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Now I will compare cases in white population vs. Multi-race population.
+
+```{r}
+epi.2by2(c(cases_multi_race,control_cases_multi_race,cases_white,control_cases_white), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Now I will compare cases in white population vs. Hispanic/Latino population.
+
+```{r}
+epi.2by2(c(cases_hispanic_latino,control_cases_hispanic_latino,cases_white,control_cases_white), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Now I will repeat the process, comparing deaths among populations. I need to find the number of deaths per population.
+
+```{r}
+tail(white) #checking to see what the last line is
+deaths_white <- white$deaths[48] - white$deaths[1]
+tail(black, 1) 
+deaths_black <- black$deaths[48] - black$deaths[1]
+tail(american_indian, 1) 
+deaths_american_indian <- american_indian$deaths[48] - american_indian$deaths[1]
+tail(asian, 1) 
+deaths_asian <- asian$deaths[48] - asian$deaths[1]
+tail(hawaiian_pacific_islander, 1) 
+deaths_hawaiian_pacific_islander <- hawaiian_pacific_islander$deaths[48] - hawaiian_pacific_islander$deaths[1]
+tail(other, 1) 
+deaths_other <- other$deaths[48] - other$deaths[1]
+tail(multi_race, 1) 
+deaths_multi_race <- multi_race$deaths[48] - other$deaths[1]
+tail(hispanic_latino, 1) 
+deaths_hispanic_latino <- hispanic_latino$deaths[48] - hispanic_latino$deaths[1]
+tail(other)
+head(other)
+other_cases_plot <- ggplot(other, aes(x = Report_Date, y = total_cases)) +
+  geom_point()
+other_cases_plot
+other_deaths_plot <- ggplot(other, aes(x = Report_Date, y = deaths)) +
+  geom_point()
+other_deaths_plot
+hispanic_latino_deaths_plot <- ggplot(hispanic_latino, aes(x = Report_Date, y = deaths)) +
+  geom_point()
+hispanic_latino_deaths_plot
+other_plot <- ggplot(other, aes(x = Report_Date)) +
+  geom_point(data = other, aes(y = total_cases, color = "Total Cases")) +
+  geom_point(data = other, aes(y = deaths, color = "Total Deaths")) +
+  scale_y_continuous(labels = scales::comma) +
+  scale_color_manual(name = "",
+                     breaks = c("Total Cases", "Total Deaths"),
+                     values = c("red","blue")) + theme_bw()
+other_plot
+
+```
+
+I have to calculate the death controls for each group.
+
+```{r}
+control_deaths_white <- ca_white_pop$estimate - deaths_white
+control_deaths_black <- ca_black_pop$estimate - deaths_black
+control_deaths_american_indian <- ca_american_indian_pop$estimate - deaths_american_indian
+control_deaths_asian <- ca_asian_pop$estimate - deaths_asian
+control_deaths_hawaiian_pacific_islander <- ca_hawaiian_pacific_islander_pop$estimate - deaths_hawaiian_pacific_islander
+control_deaths_other <- ca_other_pop$estimate - deaths_other
+control_deaths_multi_race <- ca_multi_race_pop$estimate - deaths_multi_race
+control_deaths_hispanic_latino <- ca_hispanic_latino_pop$estimate - deaths_hispanic_latino
+```
+
+Now I will compare deaths in white population vs. black population.
+
+```{r}
+epi.2by2(c(deaths_black,control_deaths_black,deaths_white,control_deaths_white), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Now I will compare deaths in white population vs. American Indian population.
+
+```{r}
+epi.2by2(c(deaths_american_indian,control_deaths_american_indian,deaths_white,control_deaths_white), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Now I will compare deaths in white population vs. Asian population.
+
+```{r}
+epi.2by2(c(deaths_asian,control_deaths_asian,deaths_white,control_deaths_white), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Now I will compare deaths in white population vs. Hawaiian/Pacific Islander population.
+
+```{r}
+epi.2by2(c(deaths_hawaiian_pacific_islander,control_deaths_hawaiian_pacific_islander,deaths_white,control_deaths_white), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Now I will compare deaths in white population vs. Other race.
+
+```{r}
+# epi.2by2(c(deaths_other,control_deaths_other,deaths_white,control_deaths_white), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+
+```
+Now I will compare deaths in white population vs. Multi-race population.
+
+```{r}
+epi.2by2(c(deaths_multi_race,control_deaths_multi_race,deaths_white,control_deaths_white), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Now I will compare deaths in white population vs. Hispanic/Latino population.
+
+```{r}
+epi.2by2(c(deaths_hispanic_latino,control_deaths_hispanic_latino,deaths_white,control_deaths_white), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Great, now it's time to look at how deaths have affected each sex. Let's start with cases vs. sex. Start with compiling the cases for each sex.
+
+```{r}
+male <- ba_4_ba_5 %>%
+  filter(demographic_value == "Male")
+tail(male)
+tail(male, 1) #checking to see that this is the last line
+cases_male <- male$total_cases[48] - male$total_cases[1]
+female <- ba_4_ba_5 %>%
+  filter(demographic_value == "Female")
+tail(female)
+tail(female, 1) #checking to see that this is the last line
+cases_female <- female$total_cases[48] - female$total_cases[1]
+```
+
+Now I need to find the controls for cases for male and female populations. I need to get the total populations first.
+
+```{r}
+ca_male_pop <- ca_male_under_5$estimate + ca_male_5_to_9$estimate + ca_male_10_to_14$estimate + ca_male_15_to_17$estimate + ca_male_18_to_19$estimate + ca_male_20$estimate + ca_male_21$estimate + ca_male_22_to_24$estimate + ca_male_25_to_29$estimate + ca_male_30_to_34$estimate + ca_male_35_to_39$estimate + ca_male_40_to_44$estimate + ca_male_45_to_49$estimate + ca_male_50_to_54$estimate + ca_male_55_to_59$estimate + ca_male_60_to_61$estimate + ca_male_62_to_64$estimate + ca_male_65_to_66$estimate + ca_male_67_to_69$estimate + ca_male_70_to_74$estimate + ca_male_75_to_79$estimate + ca_male_80_to_84$estimate + ca_male_85_and_over$estimate
+ca_female_pop <- ca_female_under_5$estimate + ca_female_5_to_9$estimate + ca_female_10_to_14$estimate + ca_female_15_to_17$estimate + ca_female_18_to_19$estimate + ca_female_20$estimate + ca_female_21$estimate + ca_female_22_to_24$estimate + ca_female_25_to_29$estimate + ca_female_30_to_34$estimate + ca_female_35_to_39$estimate + ca_female_40_to_44$estimate + ca_female_45_to_49$estimate + ca_female_50_to_54$estimate + ca_female_55_to_59$estimate + ca_female_60_to_61$estimate + ca_female_62_to_64$estimate + ca_female_65_to_66$estimate + ca_female_67_to_69$estimate + ca_female_70_to_74$estimate + ca_female_75_to_79$estimate + ca_female_80_to_84$estimate + ca_female_85_and_over$estimate
+```
+
+Now to make the controls for cases for the sex groups.
+
+```{r}
+control_cases_male <- ca_male_pop - cases_male
+control_cases_female <- ca_female_pop - cases_female
+```
+
+Now I will compare the cases in male population(exposed) vs. female population(unexposed).
+
+```{r}
+epi.2by2(c(cases_male,control_cases_male,cases_female,control_cases_female), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+
+Now to compare deaths in sex groups. Find the number of deaths in each sex group.
+
+```{r}
+tail(male) #checking to see that this is the last line
+deaths_male <- male$deaths[48] - male$deaths[1]
+tail(female, 1) #checking to see that this is the last line
+deaths_female <- female$deaths[48] - female$deaths[1]
+```
+
+Create the controls for deaths in each sex group.
+
+```{r}
+control_deaths_male <- ca_male_pop - deaths_male
+control_deaths_female <- ca_female_pop - deaths_female
+```
+
+Now compare deaths in male population vs. female population.
+
+```{r}
+epi.2by2(c(deaths_male,control_deaths_male,deaths_female,control_deaths_female), method = "cross.sectional", digits = 4, conf.level = 0.95, units = 100, interpret = TRUE, outcome = "as.columns")
+```
+The end.
